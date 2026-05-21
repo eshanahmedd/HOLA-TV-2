@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CricStream — Multi Backup Public IPTV</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+:root{--bg:#09090b;--panel:#111115;--card:#18181c;--border:rgba(255,255,255,.08);--red:#e63946;--orange:#ff6b35;--text:#eef2f6;--muted:#768397;--green:#24d66b}
+*{box-sizing:border-box} body{margin:0;background:#000;color:var(--text);font-family:Arial,Helvetica,sans-serif;height:100vh;overflow:hidden}.top{height:54px;background:#050505;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px}.logo{font-weight:900;letter-spacing:4px;color:#ff4655}.live{background:var(--red);padding:6px 12px;border-radius:5px;font-size:12px;font-weight:800;letter-spacing:2px}.wrap{display:flex;height:calc(100vh - 54px)}main{flex:1;display:flex;flex-direction:column;min-width:0;background:#000}.videoBox{position:relative;flex:1;background:#000;display:flex;align-items:center;justify-content:center}video{width:100%;height:100%;object-fit:contain;background:#000}.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(0,0,0,.82);text-align:center;padding:30px}.overlay.hide{display:none}.spin{width:34px;height:34px;border:3px solid rgba(255,255,255,.14);border-top-color:var(--red);border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}.now{height:66px;background:var(--card);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 18px}.name{font-weight:800}.sub{font-size:12px;color:var(--muted);margin-top:4px}.ticker{height:34px;background:linear-gradient(90deg,var(--red),var(--orange));display:flex;align-items:center;overflow:hidden;white-space:nowrap;font-size:13px;font-weight:800}.ticker span{display:inline-block;padding-left:100%;animation:m 32s linear infinite}@keyframes m{to{transform:translateX(-100%)}}aside{width:360px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column}.sideHead{padding:14px;border-bottom:1px solid var(--border)}input,select{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:11px;margin-bottom:8px}.btns{display:flex;gap:7px}.btn{cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);padding:9px 10px;border-radius:8px;font-size:12px}.btn:hover{border-color:var(--red)}#list{overflow:auto;flex:1}.ch{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;border-left:3px solid transparent}.ch:hover,.ch.active{background:rgba(230,57,70,.12);border-left-color:var(--red)}.logoBox{width:38px;height:38px;border-radius:8px;background:#222;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}.logoBox img{width:100%;height:100%;object-fit:contain}.ct{min-width:0;flex:1}.cn{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cs{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase}.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}.foot{padding:10px;text-align:center;color:var(--muted);font-size:12px;border-top:1px solid var(--border)}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#222;border:1px solid var(--border);padding:10px 18px;border-radius:8px;display:none}.toast.show{display:block}@media(max-width:800px){body{height:auto;overflow:auto}.wrap{flex-direction:column;height:auto}.videoBox{height:55vw}aside{width:100%;height:70vh}}
+</style>
+</head>
+<body>
+<div class="top"><div class="logo">● CRICSTREAM</div><div class="live">● LIVE TV</div></div>
+<div class="wrap">
+<main>
+ <div class="videoBox"><video id="video" controls playsinline></video><div id="overlay" class="overlay"><div>📡</div><div>Select a channel</div></div></div>
+ <div class="now"><div><div class="name" id="nowName">No channel selected</div><div class="sub" id="nowSub">Public/legal HLS stream player</div></div><div class="live">● LIVE</div></div>
+ <div class="ticker"><span>✅ Test Stream working means player is okay — ❌ Premium/private channels usually fail because links are dead, geo-blocked, token protected, or CORS blocked — Use public/free HLS streams only.</span></div>
+</main>
+<aside>
+ <div class="sideHead">
+  <input id="q" placeholder="Search channel..." oninput="render()" />
+  <select id="source" onchange="loadSource()">
+    <option value="all">All public playlists + backups</option>
+    <option value="local">Safe test + public samples</option>
+    <option value="bd">Bangladesh public playlist</option>
+    <option value="sports">Sports public playlist</option>
+    <option value="news">News public playlist</option>
+    <option value="entertainment">Entertainment public playlist</option>
+    <option value="free_tv">Free-TV playlist</option>
+  </select>
+  <div class="btns"><button class="btn" onclick="loadSource()">Reload Playlist</button><button class="btn" onclick="play(channels[0])">Play First</button></div>
+ </div>
+ <div id="list"></div>
+ <div class="foot" id="foot">Loading...</div>
+</aside>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+let hls=null,current=null,currentBackupIndex=0;
+let channels=[];
+const LOCAL=[
+ {name:'Test Stream',group:'Player Test',logo:'',streams:['https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8']},
+ {name:'Al Jazeera English',group:'News',logo:'',streams:['https://live-hls-web-aje.getaj.net/AJE/index.m3u8']},
+ {name:'NASA TV',group:'Public',logo:'',streams:['https://ntv1.akamaized.net/hls/live/2014075/NASA-TV-Public/master.m3u8']}
+];
+
+// Public/legal IPTV playlists. Premium/private channels may still fail if geo-blocked or removed.
+const PLAYLISTS={
+ bd:['https://iptv-org.github.io/iptv/countries/bd.m3u'],
+ sports:['https://iptv-org.github.io/iptv/categories/sports.m3u'],
+ news:['https://iptv-org.github.io/iptv/categories/news.m3u'],
+ entertainment:['https://iptv-org.github.io/iptv/categories/entertainment.m3u'],
+ free_tv:['https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8'],
+ all:[
+  'https://iptv-org.github.io/iptv/countries/bd.m3u',
+  'https://iptv-org.github.io/iptv/categories/sports.m3u',
+  'https://iptv-org.github.io/iptv/categories/news.m3u',
+  'https://iptv-org.github.io/iptv/categories/entertainment.m3u',
+  'https://iptv-org.github.io/iptv/categories/general.m3u',
+  'https://iptv-org.github.io/iptv/index.m3u',
+  'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8'
+ ]
+};
+
+function toast(t){const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),3600)}
+function esc(s){return String(s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
+function normalizeName(s){return String(s||'Unknown').toLowerCase().replace(/\b(hd|fhd|sd|live|tv|channel)\b/g,'').replace(/[^a-z0-9]+/g,' ').trim()}
+function parseM3U(txt,sourceName){
+ const lines=txt.split(/\r?\n/);const out=[];let meta={};
+ for(const raw of lines){
+  const line=raw.trim();
+  if(line.startsWith('#EXTINF')){
+   meta={
+    name:(line.split(',').pop()||'Unknown').trim(),
+    group:(line.match(/group-title="([^"]*)"/)||[])[1]||sourceName||'Public',
+    logo:(line.match(/tvg-logo="([^"]*)"/)||[])[1]||''
+   };
+  }else if(line && !line.startsWith('#') && /^https?:\/\//i.test(line)){
+   out.push({...meta,streams:[line]});meta={};
+  }
+ }
+ return out;
+}
+function mergeChannels(items){
+ const map=new Map();
+ for(const c of [...LOCAL,...items]){
+  const key=normalizeName(c.name);
+  if(!key) continue;
+  if(!map.has(key)) map.set(key,{name:c.name,group:c.group||'Public',logo:c.logo||'',streams:[]});
+  const exist=map.get(key);
+  if(!exist.logo && c.logo) exist.logo=c.logo;
+  if(!exist.group && c.group) exist.group=c.group;
+  for(const u of c.streams||[]) if(u && !exist.streams.includes(u)) exist.streams.push(u);
+ }
+ return [...map.values()].filter(c=>c.streams.length).slice(0,1500);
+}
+async function fetchPlaylist(url){
+ const res=await fetch(url,{cache:'no-store'});
+ if(!res.ok) throw new Error(res.status+' '+url);
+ return parseM3U(await res.text(),url.includes('Free-TV')?'Free-TV':'IPTV-org');
+}
+async function loadSource(){
+ const val=document.getElementById('source').value;
+ show('loading','Loading public playlists and backups...');
+ try{
+  if(val==='local') channels=LOCAL;
+  else{
+   const urls=PLAYLISTS[val]||PLAYLISTS.all;
+   const settled=await Promise.allSettled(urls.map(fetchPlaylist));
+   const items=settled.flatMap(r=>r.status==='fulfilled'?r.value:[]);
+   channels=mergeChannels(items);
+   console.log('Loaded playlists:', settled, channels);
+  }
+  render();hide();toast(channels.length+' channels loaded with backups');
+ }catch(e){console.error(e);channels=LOCAL;render();show('error','Playlist failed to load. Using local test channels.')}
+}
+function render(){
+ const q=document.getElementById('q').value.toLowerCase();const list=document.getElementById('list');
+ const filtered=channels.filter(c=>(c.name+' '+c.group).toLowerCase().includes(q));
+ list.innerHTML=filtered.map(c=>`<div class="ch ${current&&current.name===c.name?'active':''}" onclick="play(channels[${channels.indexOf(c)}])"><div class="logoBox">${c.logo?`<img src="${c.logo}" onerror="this.parentElement.textContent='📺'">`:'📺'}</div><div class="ct"><div class="cn">${esc(c.name)}</div><div class="cs">${esc(c.group||'Public')} • ${c.streams.length} backup${c.streams.length>1?'s':''}</div></div><div class="dot"></div></div>`).join('')||'<div style="padding:30px;color:#777">No channels found</div>';
+ document.getElementById('foot').textContent=filtered.length+' channels • backup fallback enabled';
+}
+function show(type,msg){const o=document.getElementById('overlay');o.className='overlay';o.innerHTML=type==='loading'?`<div class="spin"></div><div>${msg}</div>`:`<div style="font-size:36px">📡</div><div>${msg}</div>`}
+function hide(){document.getElementById('overlay').classList.add('hide')}
+function cleanupVideo(){const v=document.getElementById('video');if(hls){hls.destroy();hls=null}v.pause();v.removeAttribute('src');v.load();return v}
+function play(ch){if(!ch)return;current=ch;currentBackupIndex=0;render();document.getElementById('nowName').textContent=ch.name;document.getElementById('nowSub').textContent=(ch.group||'Public')+' • '+ch.streams.length+' stream backup(s)';startUrl(ch.streams[0])}
+function startUrl(url){
+ const ch=current;const v=cleanupVideo();show('loading','Connecting: backup '+(currentBackupIndex+1)+' / '+ch.streams.length);
+ if(Hls.isSupported()){
+  hls=new Hls({enableWorker:true,lowLatencyMode:true,backBufferLength:20,maxBufferLength:30,fragLoadingTimeOut:12000,manifestLoadingTimeOut:12000});
+  hls.on(Hls.Events.MANIFEST_PARSED,()=>{hide();v.play().catch(()=>show('play','Tap the video play button'))});
+  hls.on(Hls.Events.ERROR,(e,d)=>{console.log('HLS ERROR',d,url);if(d.fatal) tryNextBackup()});
+  hls.loadSource(url);hls.attachMedia(v);
+ }else if(v.canPlayType('application/vnd.apple.mpegurl')){
+  v.src=url;v.onloadedmetadata=()=>{hide();v.play()};v.onerror=tryNextBackup;
+ }else show('error','Browser does not support HLS');
+}
+function tryNextBackup(){
+ if(!current) return;
+ currentBackupIndex++;
+ if(currentBackupIndex<current.streams.length){toast('⚡ Switching backup '+(currentBackupIndex+1));setTimeout(()=>startUrl(current.streams[currentBackupIndex]),500)}
+ else{show('error','All backups failed / blocked for this channel. Try another.');toast('❌ All backups failed')}
+}
+loadSource().then(()=>setTimeout(()=>play(channels[0]),500));
+</script>
+</body>
+</html>
